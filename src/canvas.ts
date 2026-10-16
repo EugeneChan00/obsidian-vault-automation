@@ -40,14 +40,10 @@ interface Rect {
   height: number;
 }
 
-const CELL = 360;
 const GAP = 40;
 const PAD = 40;
-const COLS = 4;
 const HEADER = 40;
-/** Top-level groups are created full grid width so growth is vertical only and never overlaps the next group. */
-const GROUP_WIDTH = 2 * PAD + COLS * CELL + (COLS - 1) * GAP;
-const EMPTY_GROUP_HEIGHT = HEADER + 2 * PAD + CELL;
+const DEFAULT_LAYOUT = { cardWidth: 360, cardHeight: 360, columns: 4 };
 
 /** FNV-1a: stable short id for a vault path. */
 function pathHash(path: string): string {
@@ -127,6 +123,12 @@ export function reconcile(data: CanvasData, spec: CanvasSpec, rebuild = false): 
   const nodeId = (ref: string) => (ref === "anchor" ? anchorId : groupId(ref));
   const managed = (id: string) => id.startsWith(p);
   const byId = () => new Map(data.nodes.map((n) => [n.id, n]));
+  const cardW = spec.layout?.cardWidth ?? DEFAULT_LAYOUT.cardWidth;
+  const cardH = spec.layout?.cardHeight ?? DEFAULT_LAYOUT.cardHeight;
+  const columns = Math.max(1, spec.layout?.columns ?? DEFAULT_LAYOUT.columns);
+  // Top-level groups are created full grid width so growth is vertical only and never overlaps the next group.
+  const groupWidth = 2 * PAD + columns * cardW + (columns - 1) * GAP;
+  const emptyGroupHeight = HEADER + 2 * PAD + cardH;
 
   // Flatten the spec tree: parent links, desired group per file, top-down order.
   const order: { spec: CanvasGroupSpec; parent: string | null }[] = [];
@@ -155,10 +157,11 @@ export function reconcile(data: CanvasData, spec: CanvasSpec, rebuild = false): 
   if (spec.anchor) {
     let anchor = data.nodes.find((n) => n.id === anchorId);
     if (!anchor) {
-      anchor = { id: anchorId, type: "file", file: spec.anchor, x: 0, y: 0, width: 400, height: 520 };
+      anchor = { id: anchorId, type: "file", file: spec.anchor, x: 0, y: 0, width: cardW, height: cardH };
       data.nodes.push(anchor);
     }
     anchor.file = spec.anchor;
+    if (rebuild) Object.assign(anchor, { width: cardW, height: cardH });
   }
 
   // Drop managed groups no longer in the spec (unless they still hold user nodes) and managed
@@ -200,12 +203,12 @@ export function reconcile(data: CanvasData, spec: CanvasSpec, rebuild = false): 
       const parentNode = parent ? all.get(parent) : undefined;
       if (!parentNode) {
         const right = data.nodes.reduce((max, n) => Math.max(max, n.x + n.width), 0);
-        node = { id, type: "group", label: g.label, x: right + 2 * GAP, y: 0, width: GROUP_WIDTH, height: EMPTY_GROUP_HEIGHT };
+        node = { id, type: "group", label: g.label, x: right + 2 * GAP, y: 0, width: groupWidth, height: emptyGroupHeight };
       } else {
         const top = data.nodes
           .filter((n) => n !== parentNode && inside(n, parentNode))
           .reduce((max, n) => Math.max(max, n.y + n.height + GAP), parentNode.y + PAD + HEADER);
-        node = { id, type: "group", label: g.label, x: parentNode.x + PAD, y: top, width: parentNode.width - 2 * PAD, height: EMPTY_GROUP_HEIGHT };
+        node = { id, type: "group", label: g.label, x: parentNode.x + PAD, y: top, width: parentNode.width - 2 * PAD, height: emptyGroupHeight };
         const need = node.y + node.height + PAD - (parentNode.y + parentNode.height);
         if (need > 0) makeRoom(data, chainOf(parentNode.id), parentNode.y + parentNode.height, need);
       }
@@ -220,21 +223,23 @@ export function reconcile(data: CanvasData, spec: CanvasSpec, rebuild = false): 
     for (const filePath of g.files) {
       if (shown.has(filePath)) continue;
       const group = byId().get(groupId(g.key))!;
-      const cols = Math.max(1, Math.floor((group.width - 2 * PAD + GAP) / (CELL + GAP)));
+      // Deeply nested groups narrower than a card get cards shrunk to fit.
+      const w = Math.min(cardW, group.width - 2 * PAD);
+      const cols = Math.max(1, Math.floor((group.width - 2 * PAD + GAP) / (w + GAP)));
       for (let i = 0; ; i++) {
         const rect = {
-          x: group.x + PAD + (i % cols) * (CELL + GAP),
-          y: group.y + PAD + HEADER + Math.floor(i / cols) * (CELL + GAP),
-          width: CELL,
-          height: CELL,
+          x: group.x + PAD + (i % cols) * (w + GAP),
+          y: group.y + PAD + HEADER + Math.floor(i / cols) * (cardH + GAP),
+          width: w,
+          height: cardH,
         };
         const nested = data.nodes.filter((n) => n.type === "group" && n !== group && inside(n, group) && overlaps(n, rect));
         if (nested.length) {
           const top = Math.min(...nested.map((n) => n.y));
-          makeRoom(data, chainOf(group.id), top, rect.y + CELL + GAP - top);
+          makeRoom(data, chainOf(group.id), top, rect.y + cardH + GAP - top);
         }
         if (data.nodes.some((n) => n.type !== "group" && overlaps(n, rect))) continue;
-        const need = rect.y + CELL + PAD - (group.y + group.height);
+        const need = rect.y + cardH + PAD - (group.y + group.height);
         if (need > 0) makeRoom(data, chainOf(group.id), group.y + group.height, need);
         data.nodes.push({ id: fileId(filePath), type: "file", file: filePath, ...rect });
         shown.add(filePath);

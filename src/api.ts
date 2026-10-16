@@ -158,6 +158,11 @@ export interface CanvasSpec {
   groups: CanvasGroupSpec[];
   /** Edges between "anchor" and top-level group keys. */
   edges: [string, string][];
+  /**
+   * Card size (canvas units) and columns per top-level group. Applies to new cards; use
+   * `rebuild` to resize existing ones. Defaults: 360 × 360, 4 columns.
+   */
+  layout?: { cardWidth?: number; cardHeight?: number; columns?: number };
 }
 
 export interface CanvasApi {
