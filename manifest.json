@@ -1,0 +1,9 @@
+{
+  "id": "vault-automation",
+  "name": "Vault Automation",
+  "version": "0.1.0",
+  "minAppVersion": "1.12.0",
+  "description": "Schema-agnostic automation API: frontmatter change events, path events, property/template/canvas/window-space actions, and adapter registration.",
+  "author": "rlabs",
+  "isDesktopOnly": true
+}
