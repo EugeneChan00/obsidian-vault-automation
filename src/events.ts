@@ -17,6 +17,8 @@ export class EventHub {
   private readonly pathSubs = new Set<{ filter: PathFilter; handler: PathHandler }>();
   private readonly recentWrites = new Map<string, number[]>();
   private suspendDepth = 0;
+  /** Notes written inside a batch whose metadata update has not arrived yet (it lands after the batch). */
+  private readonly quiet = new Set<string>();
 
   constructor(private readonly app: App) {}
 
@@ -53,15 +55,16 @@ export class EventHub {
     return { dispose: () => this.pathSubs.delete(sub) };
   }
 
-  snapshot(path: string): Frontmatter | null {
-    return this.snapshots.get(path) ?? null;
+  /** Record a frontmatter write; inside a batch its later metadata event must not dispatch. */
+  noteWrite(path: string): void {
+    if (this.suspended) this.quiet.add(path);
   }
 
   async metadataChanged(file: TFile, cache: FrontMatterCache | undefined): Promise<void> {
     const fm: Frontmatter = cache ? structuredClone({ ...cache }) : {};
     const prev = this.snapshots.get(file.path) ?? null;
     this.snapshots.set(file.path, fm);
-    if (this.suspended || !cache) return;
+    if (this.quiet.delete(file.path) || this.suspended || !cache) return;
     const keys = new Set([...Object.keys(fm), ...Object.keys(prev ?? {})]);
     // Values are YAML-derived plain data, so JSON equality is a deep compare.
     const changed = [...keys].filter((k) => !prev || JSON.stringify(prev[k]) !== JSON.stringify(fm[k]));

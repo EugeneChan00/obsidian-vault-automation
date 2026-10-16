@@ -7,7 +7,8 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function createProps(app: App): PropsApi {
+/** `onWrite(path)` runs before each frontmatter write that changes the note. */
+export function createProps(app: App, onWrite: (path: string) => void): PropsApi {
   return {
     get(path) {
       const f = app.vault.getAbstractFileByPath(path);
@@ -24,6 +25,7 @@ export function createProps(app: App): PropsApi {
         if (typeof patch === "function") patch(fm);
         else for (const [k, v] of Object.entries(patch)) v === undefined ? delete fm[k] : (fm[k] = v);
         changed = JSON.stringify(fm) !== before;
+        if (changed) onWrite(path);
       });
       return changed;
     },

@@ -29,7 +29,7 @@ export default class VaultAutomationPlugin extends Plugin {
       get suspended() {
         return hub.suspended;
       },
-      props: createProps(this.app),
+      props: createProps(this.app, (path) => hub.noteWrite(path)),
       notes: createNotes(this.app),
       canvas: createCanvas(this.app),
       spaces: createSpaces(this.app),
