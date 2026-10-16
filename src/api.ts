@@ -102,33 +102,6 @@ export interface NotesApi {
   createFromTemplate(templatePath: string, target: string, vars: Record<string, string | number>): Promise<TFile>;
 }
 
-export interface CanvasGroupSpec {
-  /** Stable key, used in managed ids and edges. */
-  key: string;
-  label: string;
-  /** Vault paths of files that belong in this group. */
-  files: string[];
-  /** Collapse once (Advanced Canvas format); a group the user re-expands stays expanded. */
-  collapse?: boolean;
-}
-
-export interface CanvasSpec {
-  canvasPath: string;
-  /** Prefix of every element this spec owns, e.g. "rlos-". Other elements are never touched. */
-  idPrefix: string;
-  /** File shown left of the groups; edges can reference it as "anchor". */
-  anchor?: string;
-  /** Groups left to right. */
-  groups: CanvasGroupSpec[];
-  /** Edges between "anchor" and group keys. */
-  edges: [string, string][];
-}
-
-export interface CanvasApi {
-  /** Create or reconcile the canvas. Returns true when the file changed. */
-  sync(spec: CanvasSpec): Promise<boolean>;
-}
-
 export interface SpaceInfo {
   id: string;
   name: string;
@@ -158,6 +131,38 @@ export interface Validator {
   enumOf(def: string): unknown[];
   /** Validate frontmatter against an object `$defs` entry (required, const, enum, type, pattern, min/max). */
   validate(def: string, fm: Frontmatter): Violation[];
+}
+
+export interface CanvasGroupSpec {
+  /** Stable key, unique within the spec; used in managed ids and edges. */
+  key: string;
+  label: string;
+  /** Vault paths of files placed directly in this group. */
+  files: string[];
+  /** Nested groups, stacked inside this group below its own files. */
+  groups?: CanvasGroupSpec[];
+  /** Collapse once (Advanced Canvas format); a group the user re-expands stays expanded. */
+  collapse?: boolean;
+}
+
+export interface CanvasSpec {
+  canvasPath: string;
+  /** Prefix of every element this spec owns, e.g. "rlos-". Other elements are never touched. */
+  idPrefix: string;
+  /** File shown left of the groups; edges can reference it as "anchor". */
+  anchor?: string;
+  /** Top-level groups, left to right. */
+  groups: CanvasGroupSpec[];
+  /** Edges between "anchor" and top-level group keys. */
+  edges: [string, string][];
+}
+
+export interface CanvasApi {
+  /**
+   * Create or reconcile the canvas. Returns true when the file changed. Growth pushes later
+   * siblings down instead of overlapping them. `rebuild` re-lays out every managed element.
+   */
+  sync(spec: CanvasSpec, opts?: { rebuild?: boolean }): Promise<boolean>;
 }
 
 export interface SchemaApi {
