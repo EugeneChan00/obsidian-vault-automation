@@ -5,5 +5,6 @@
   "minAppVersion": "1.12.0",
   "description": "Schema-agnostic automation API: frontmatter change events, path events, property/template/canvas/window-space actions, and adapter registration.",
   "author": "rlabs",
-  "isDesktopOnly": true
+  "isDesktopOnly": true,
+  "authorUrl": "https://github.com/EugeneChan00"
 }
