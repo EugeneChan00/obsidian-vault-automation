@@ -141,7 +141,10 @@ export interface CanvasGroupSpec {
   files: string[];
   /** Nested groups, stacked inside this group below its own files. */
   groups?: CanvasGroupSpec[];
-  /** Collapse once (Advanced Canvas format); a group the user re-expands stays expanded. */
+  /**
+   * `true`: fold once (Advanced Canvas format); a group the user re-expands stays expanded.
+   * `false`: unfold it if automation folded it. Omitted: leave folding alone.
+   */
   collapse?: boolean;
 }
 

@@ -243,16 +243,30 @@ export function reconcile(data: CanvasData, spec: CanvasSpec, rebuild = false): 
     }
   }
 
-  for (const id of stillCollapse) {
-    const n = byId().get(id);
-    if (n) collapse(data, n);
-  }
+  // Fold groups that were folded before, plus spec groups asking to fold for the first time;
+  // `collapse: false` unfolds groups automation folded (folds the user made stay).
+  // Deepest first: folding a parent stashes its children, so they must already be folded.
+  const fold = new Set(stillCollapse);
   for (const { spec: g } of order) {
     const n = byId().get(groupId(g.key));
-    if (n && g.collapse && !n.collapsed && !n.automationCollapsed) {
-      collapse(data, n);
+    if (!n) continue;
+    if (g.collapse === true && !n.automationCollapsed) {
       n.automationCollapsed = true;
+      fold.add(n.id);
+    } else if (g.collapse === false && n.automationCollapsed) {
+      delete n.automationCollapsed;
+      fold.delete(n.id);
     }
+  }
+  const depthOf = (id: string) => {
+    let d = 0;
+    for (let cur = parentOf.get(id); cur; cur = parentOf.get(cur)) d++;
+    return d;
+  };
+  const depth = new Map([...fold].map((id) => [id, depthOf(id)]));
+  for (const id of [...fold].sort((a, b) => (depth.get(b) ?? 0) - (depth.get(a) ?? 0))) {
+    const n = byId().get(id);
+    if (n && !n.collapsed) collapse(data, n);
   }
 
   const want = new Map(spec.edges.map(([from, to]) => [`${p}edge-${from}--${to}`, [nodeId(from), nodeId(to)] as const]));
